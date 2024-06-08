@@ -41,6 +41,7 @@ Operation Details:
 	real-time to provide timely analysis.
 
   Gtests/GMockTests: 
+![MoonProjectBuildGmockOutput](https://github.com/ntvu5451/MoonMining/assets/44453995/0269370a-7609-4fd7-89ff-3b13b816272c)
 
   	test/Mock_MoonMining utilitizes Gtests for testing MoonMining objects/functionaties as well as GMockTests for stubbed functions 
   

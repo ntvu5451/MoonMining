@@ -1,10 +1,11 @@
 # MoonMining
-Objective:
+
 	 This project simulates a lunar Helium-3 space mining operation. This
 	 simulation will manage and track the efficiency of mining trucks and unload stations over a
 	 continuous 72-hour operation.
  
  KeyComponents:
+ 
 	 ● MiningTrucks: These vehicles perform the actual mining tasks.
   
 	 ● MiningSites: Locations on the moon where the trucks extract Helium-3. Assume an infinite
@@ -14,6 +15,7 @@ Objective:
 	 station can handle one truck at a time
   
 Operation Details:
+
 	● There are (n) mining trucks and (m) mining unload stations.
  
 	● Mining trucks can spend a random duration between 1 to 5 hours mining at the sites.
@@ -28,6 +30,7 @@ Operation Details:
 	queue at the station with the shortest wait time and remain in their chosen queue.
  
 	Simulation Requirements:
+ 
 	● The simulation must be configurable to accommodate various numbers of mining trucks (n)
 	and unload stations (m).
  

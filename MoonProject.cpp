@@ -3,42 +3,45 @@
 
 #include "MoonMining.h"
 
-using namespace std;
-#include <chrono>
-#include <thread>
-#include <mutex>
-#include <semaphore>
-#include <queue>
-#include <random>
-#include <thread>
-#include <vector>
-
-using namespace std::literals;
-
 int main(int argc, char* argv[]){
     
     //get size from command line to set num of stations
     //run for 72 hrs
     //get values from command line
-    int max_truck_num = 25;
-    int max_load_sites = 20;
-    int max_threads = max_truck_num;
+    int max_truck_num = 8;
+    int max_load_sites = 10;
+    int max_threads= 10;
+    float total_run_in_hrs = 72.0;
     std::string filename = "output.csv";
-    if ((argc >= 3))
+    if ((argc >= 4))
     {
         max_truck_num = atoi(argv[1]);
         max_load_sites = atoi(argv[2]);
+        total_run_in_hrs = atof(argv[3]);
+        if (argc == 5)
+        {
+            filename = std::string(argv[4]);
+        }
     }
-    if ((argc == 4))
+                                                                                 
+    max_threads = max_truck_num;
+    MoonMining mining_obj(max_threads, max_truck_num, max_load_sites,total_run_in_hrs,filename);
+    bool status = mining_obj.Init(filename);
+    if (!status)
     {
-        filename = argv[3];
-    }                                                                              
+        std::cout << "MoonMining Init failed. Project stopped." << std::endl;
+        return 0;
+    }
 
-    MoonMining mining_obj(max_threads, max_truck_num, max_load_sites,filename);
-    mining_obj.CreateThreads();
-    mining_obj.JoinThreads();
-
-    mining_obj.PrintQueueListStats();
+    if (mining_obj.CreateThreads())
+    {
+        mining_obj.JoinThreads();
+        mining_obj.PrintQueueListStats();
+    }
+    else
+    {
+        std::cout << "MoonMining CreateThreads() failed. Project stopped." << std::endl;
+    }
 
     return 0;
 

@@ -4,45 +4,16 @@
 #include <chrono>
 #include "MoonMining.h"
 
-MoonMining::MoonMining(int max_threads, int max_trucks, int max_loading_sites, std::string file_name) :
+MoonMining::MoonMining(int max_threads, int max_trucks, int max_loading_sites, float total_run_hours, std::string file_name) :
     max_threads_(max_threads),
+    max_unloading_sites_(max_loading_sites),
+    max_trucks_(max_trucks),
     full_trucks_semaphore_{ max_threads },
     empty_trucks_semaphore_{ max_threads },
-    max_trucks_(max_trucks),
-    max_unloading_sites_(max_loading_sites),
     loading_sites_semaphore_(max_loading_sites),
     unloading_queuelist_(max_loading_sites),
-    output_file_(file_name)
+    total_run_time_(total_run_hours)
 {
-
-    //initialize unloading site queuelist
-    for (int i = 0; i < unloading_queuelist_.size(); ++i)
-    {
-        std::queue<int> new_queue;
-        unloading_queuelist_[i] = new_queue;
-    }
-
-    if (output_file_.is_open())
-    {
-        output_file_ << "****************MINING TRUCK STATISTICS***************" << std::endl << std::endl;
-    }
-
-}
-
-void MoonMining::CreateThreads()
-{
-    for (int p = 0; p < max_trucks_; ++p) {
-        producer_threads_.emplace_back([&] { Produce(); });
-
-    }
-
-    for (int c = 0; c < max_trucks_; ++c) {
-        consumer_truck_threads_.emplace_back([&] { ConsumeLoadedTrucksIntoQueues(); });
-    }
-
-    for (int i = 0; i < max_unloading_sites_; ++i) {
-        consumer_site_threads_.emplace_back([&] {ConsumeUnloadSite(i); });
-    }
 }
 
 MoonMining::~MoonMining()
@@ -53,24 +24,110 @@ MoonMining::~MoonMining()
     }
 
 }
-
-void MoonMining::JoinThreads()
+bool MoonMining::Init(std::string out_file)
 {
+    bool return_status = false;
+
+    //open output file
+    output_file_.open(out_file.c_str(), std::ofstream::out);
+    if(output_file_.is_open())
+    {
+        return_status = true;
+        output_file_ << "****************MINING TRUCK STATISTICS***************" << std::endl << std::endl;
+    }
+    else
+    {
+        std::cout << "output file: "<< out_file << " failed to open." << std::endl;
+    }
+
+    //start the run time clock
+    run_time_start_ = std::chrono::steady_clock::now();
+
+    return return_status;
+}
+
+bool MoonMining::CreateThreads()
+{
+    bool return_status = true;
+
+    for (int p = 0; p < max_trucks_; ++p) {
+        producer_threads_.emplace_back([&] { Produce(); });
+    }
+
+    for (int c = 0; c < max_trucks_; ++c) {
+        consumer_truck_threads_.emplace_back([&] { ConsumeLoadedTrucksIntoQueues(); });
+    }
+
+    for (int i = 0; i < max_unloading_sites_; ++i) {
+        consumer_site_threads_.emplace_back([&] {ConsumeUnloadSite(i); });
+    }
+
+    if (producer_threads_.size() != max_trucks_ && consumer_truck_threads_.size() != max_trucks_)
+    {
+        return_status = false;
+        std::cout << "producer threads and/or consumer truck threads were not created successfully." << std::endl;
+    }
+    if (consumer_site_threads_.size() != max_unloading_sites_)
+    {
+        std::cout << "consumer site threads were not created successfully." << std::endl;
+        return_status = false;
+    }
+
+    return return_status;
+}
+
+
+
+bool MoonMining::JoinThreads()
+{
+    bool return_status = true;
+    int unjoinable_count = 0;
     for (int i = 0; i < max_threads_; ++i)
     {
-        producer_threads_[i].join(); // Wait for producer thread to finish
-        consumer_truck_threads_[i].join(); // Wait for consumer thread to finish
+        if (producer_threads_[i].joinable())
+        {
+            producer_threads_[i].join(); // Wait for producer thread to finish
+        }
+        else
+        {
+            unjoinable_count++;
+            return_status = false;
+        }
+        if (consumer_truck_threads_[i].joinable())
+        {
+            consumer_truck_threads_[i].join(); // Wait for consumer thread to finish
+        }
+        else
+        {
+            unjoinable_count++;
+            return_status = false;
+        }
     }
 
     for (int i = 0; i < max_unloading_sites_; ++i)
     {
-        consumer_site_threads_[i].join(); // Wait for consumer thread to finish
+        if (consumer_site_threads_[i].joinable())
+        {
+            consumer_site_threads_[i].join(); // Wait for consumer thread to finish
+        }
+        else
+        {
+            unjoinable_count++;
+            return_status = false;
+
+        }
+    }
+    if (!return_status)
+    {
+        std::cout << unjoinable_count << " threads failed to join." << std::endl;
     }
 
+    return return_status;
 }
 
 void MoonMining::Produce() {
     bool end_run = false;
+    
     while (!end_run) {
         int item = 0;
         empty_trucks_semaphore_.acquire();
@@ -81,15 +138,22 @@ void MoonMining::Produce() {
                 auto start_time = std::chrono::steady_clock::now();
                 truck_queue_.push(item);
                 int rand_num = 1 + (rand() % 5);//1-5 hrs
-                std::this_thread::sleep_for(std::chrono::seconds(rand_num));
+                std::this_thread::sleep_for(std::chrono::hours(rand_num));
 
                 //add travel time to unloading site
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                std::this_thread::sleep_for(std::chrono::minutes(30));
 
                 std::thread::id trd_id = std::this_thread::get_id();
                 auto end_time = std::chrono::steady_clock::now();
 
-                mining_statistics_[trd_id] = std::chrono::duration<float>(end_time - start_time).count();
+                //save mining stacks per truck in hours
+                mining_statistics_[trd_id] = (std::chrono::duration<float>(end_time - start_time).count())/3600;
+
+                //check if duration for mining has reached max (total_run_time)
+                if(((std::chrono::duration<float>(end_time - run_time_start_).count())/3600.0) > total_run_time_)
+                {
+                    end_run = true;
+                }
 
                 std::cout << "truck Id: " << trd_id << "  mining time: " <<mining_statistics_[trd_id] << std::endl;
                 output_file_ << "truck_id ," << trd_id << " , mining_time, " << mining_statistics_[trd_id] << std::endl;
@@ -98,6 +162,7 @@ void MoonMining::Produce() {
         }
         full_trucks_semaphore_.release();
     }
+
 }
 
 void MoonMining::ConsumeLoadedTrucksIntoQueues() {
@@ -114,9 +179,17 @@ void MoonMining::ConsumeLoadedTrucksIntoQueues() {
                 //Get truck into shortest queue for unloading
                 PopulateUnLoadingSiteQueue();
             }
+
+            //check if duration for mining has reached max total_run_time
+            auto end_time = std::chrono::steady_clock::now();
+            if ((std::chrono::duration<float>(end_time - run_time_start_).count() / 3600.0) > total_run_time_)
+            {
+                end_run = true;
+            }
         }
         loading_sites_semaphore_.release();
     }
+
 }
 
 void MoonMining::ConsumeUnloadSite(int site_number)
@@ -132,7 +205,7 @@ void MoonMining::ConsumeUnloadSite(int site_number)
             if (unloading_queuelist_[index].size() > 0)
             {
                 //time to unload the truck
-                std::this_thread::sleep_for(std::chrono::seconds(5));
+                std::this_thread::sleep_for(std::chrono::minutes(30));
                  
                 unloading_queuelist_[index].pop();
                 if (truck_queue_.size() > 0)
@@ -141,14 +214,19 @@ void MoonMining::ConsumeUnloadSite(int site_number)
                 }
                 
                 //add travel time to unloading site
-                std::this_thread::sleep_for(std::chrono::seconds(5));
+                std::this_thread::sleep_for(std::chrono::minutes(30));
 
                 //Keep Track of how many trucks are unloaded at each unloading site
                 unloading_site_statistics_[index] += 1;
                 std::cout << "unloading site: " << site_number << "  number of trucks unloaded: " << unloading_site_statistics_[index] << std::endl;
             }
 
-            //std::cout << "Truck size after unloading: " << truck_queue_.size() << std::endl << std::endl; // Display buffer size after consuming
+            //check if duration for mining has reached max total_run_time_ hrs
+            auto end_time = std::chrono::steady_clock::now();
+            if ((std::chrono::duration<float>(end_time - run_time_start_).count() / 3600.0) > total_run_time_)
+            {
+                end_run = true;
+            }
         }
         empty_trucks_semaphore_.release();
     }
@@ -159,7 +237,7 @@ void MoonMining::PopulateUnLoadingSiteQueue()
 {
      int min_index = 0;
      int load_item = 1;
-    //find unloading site with shortest queue
+     //find unloading site with shortest queue
      for(int i = 0; i < unloading_queuelist_.size(); ++i)
      {
          //populate the first laoding queue that is empty
@@ -197,7 +275,6 @@ void MoonMining::PrintQueueListStats()
     }
 
     output_file_.close();
-    
 }
 
 

@@ -39,4 +39,10 @@ Operation Details:
  
 	● The simulation represents 72 hours of non-stop mining and must execute faster than
 	real-time to provide timely analysis.
+
+  Gtests/GMockTests: 
+
+  	test/Mock_MoonMining utilitizes Gtests for testing MoonMining objects/functionaties as well as GMockTests for stubbed functions 
+  
+  	such as semaphore creation which would require substantial run time in a gtest suite
  

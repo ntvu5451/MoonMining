@@ -10,7 +10,7 @@ MoonMining::MoonMining(int max_threads, int max_trucks, int max_loading_sites, f
     max_trucks_(max_trucks),
     full_trucks_semaphore_{ max_threads },
     empty_trucks_semaphore_{ max_threads },
-    loading_sites_semaphore_(max_loading_sites),
+    unloading_sites_semaphore_(max_loading_sites),
     unloading_queuelist_(max_loading_sites),
     total_run_time_(total_run_hours)
 {
@@ -27,6 +27,9 @@ MoonMining::~MoonMining()
 bool MoonMining::Init(std::string out_file)
 {
     bool return_status = false;
+
+    //seed rand generator to be used by producer
+    srand(time(NULL));
 
     //open output file
     output_file_.open(out_file.c_str(), std::ofstream::out);
@@ -146,8 +149,8 @@ void MoonMining::Produce() {
                 std::thread::id trd_id = std::this_thread::get_id();
                 auto end_time = std::chrono::steady_clock::now();
 
-                //save mining stacks per truck in hours
-                mining_statistics_[trd_id] = (std::chrono::duration<float>(end_time - start_time).count())/3600;
+                //save mining stats per truck in hours
+                mining_statistics_[trd_id] = (std::chrono::duration<float>(end_time - start_time).count())/3600.0;
 
                 //check if duration for mining has reached max (total_run_time)
                 if(((std::chrono::duration<float>(end_time - run_time_start_).count())/3600.0) > total_run_time_)
@@ -187,7 +190,7 @@ void MoonMining::ConsumeLoadedTrucksIntoQueues() {
                 end_run = true;
             }
         }
-        loading_sites_semaphore_.release();
+        unloading_sites_semaphore_.release();
     }
 
 }
@@ -196,29 +199,32 @@ void MoonMining::ConsumeUnloadSite(int site_number)
 {
     int load = 1;
     bool end_run = false;
-    int index = site_number - 1;//adjust for zero based indexing
+  
     while (!end_run) {
-        loading_sites_semaphore_.acquire();
+        unloading_sites_semaphore_.acquire();
         {
             std::lock_guard<std::mutex> guard(mutex_);
 
-            if (unloading_queuelist_[index].size() > 0)
+            if (unloading_queuelist_[site_number].size() > 0)
             {
                 //time to unload the truck
                 std::this_thread::sleep_for(std::chrono::minutes(30));
                  
-                unloading_queuelist_[index].pop();
+                unloading_queuelist_[site_number].pop();
                 if (truck_queue_.size() > 0)
                 {
                     truck_queue_.pop();
                 }
                 
-                //add travel time to unloading site
+                //Keep Track of how many trucks are unloaded at each unloading site
+                unloading_site_statistics_[site_number] += 1;
+
+                //adjust site number to start at 1 for logging only
+                std::cout << "unloading site: " << (site_number +1) << "  number of trucks unloaded: " << unloading_site_statistics_[site_number] << std::endl;
+
+                //add travel time for each unloaded truck to travel back to mining site to load more moon rocks
                 std::this_thread::sleep_for(std::chrono::minutes(30));
 
-                //Keep Track of how many trucks are unloaded at each unloading site
-                unloading_site_statistics_[index] += 1;
-                std::cout << "unloading site: " << site_number << "  number of trucks unloaded: " << unloading_site_statistics_[index] << std::endl;
             }
 
             //check if duration for mining has reached max total_run_time_ hrs
@@ -271,7 +277,7 @@ void MoonMining::PrintQueueListStats()
     {
         output_file_ << std::endl << std::endl;
         output_file_ << "***************UNLOADING SITE STATISTICS***************" << std::endl;
-        output_file_ << "Unloading Site Number, " << i << " ,total trucks queued, " << unloading_queuelist_[i].size() << std::endl;
+        output_file_ << "Unloading Site Number, " << i << " , total trucks queued, " << unloading_queuelist_[i].size() << std::endl;
     }
 
     output_file_.close();

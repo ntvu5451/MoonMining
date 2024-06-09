@@ -29,7 +29,7 @@ Operation Details:
 	● Trucks are assigned to the first available unload station. If all stations are occupied, trucks
 	queue at the station with the shortest wait time and remain in their chosen queue.
  
-	Simulation Requirements:
+Simulation Requirements:
  
 	● The simulation must be configurable to accommodate various numbers of mining trucks (n)
 	and unload stations (m).
@@ -40,7 +40,23 @@ Operation Details:
 	● The simulation represents 72 hours of non-stop mining and must execute faster than
 	real-time to provide timely analysis.
 
-  Gtests/GMockTests: 
+ Run Instructions:
+ 
+	● to configure: cmake -S . -B build
+	
+	● to build: cmake --build build
+ 
+	● cd to build/Debug
+	
+	● run: MoonProjectTarget.exe //will use default arguments or 
+ 
+	● run: MoonProjectTarget.ext [n] [m] [run_time in hrs] [output file name] //n=number of trucks, m=number of unload sites
+   
+
+Gtests/GMockTests: 
+
+Instructions to run in console below: 
+
 ![MoonProjectBuildGmockOutput](https://github.com/ntvu5451/MoonMining/assets/44453995/0269370a-7609-4fd7-89ff-3b13b816272c)
 
   	test/Mock_MoonMining utilitizes Gtests for testing MoonMining objects/functionaties as well as GMockTests for stubbed functions 

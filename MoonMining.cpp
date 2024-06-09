@@ -28,8 +28,14 @@ bool MoonMining::Init(std::string out_file)
 {
     bool return_status = false;
 
-    //seed rand generator to be used by producer
-    srand(time(NULL));
+    //get chrono time for seeding srand
+    auto now = std::chrono::system_clock::now();
+
+    // Convert the time to a seed value
+    unsigned int seed = unsigned int(std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count());
+
+    // Seed the random number generator
+    srand(seed);
 
     //open output file
     output_file_.open(out_file.c_str(), std::ofstream::out);
@@ -208,7 +214,7 @@ void MoonMining::ConsumeUnloadSite(int site_number)
             if (unloading_queuelist_[site_number].size() > 0)
             {
                 //time to unload the truck
-                std::this_thread::sleep_for(std::chrono::minutes(30));
+                std::this_thread::sleep_for(std::chrono::minutes(5));
                  
                 unloading_queuelist_[site_number].pop();
                 if (truck_queue_.size() > 0)
@@ -222,7 +228,7 @@ void MoonMining::ConsumeUnloadSite(int site_number)
                 //adjust site number to start at 1 for logging only
                 std::cout << "unloading site: " << (site_number +1) << "  number of trucks unloaded: " << unloading_site_statistics_[site_number] << std::endl;
 
-                //add travel time for each unloaded truck to travel back to mining site to load more moon rocks
+                //add travel time for each unloaded truck to travel back to mining site for more loads
                 std::this_thread::sleep_for(std::chrono::minutes(30));
 
             }

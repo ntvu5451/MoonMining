@@ -39,7 +39,14 @@ Simulation Requirements:
  
 	● The simulation represents 72 hours of non-stop mining and must execute faster than
 	real-time to provide timely analysis.
+ 
+ Producer/Consumer Semaphores Design Diagram:
+ 
+ This diagram represents the counting semaphores workflow implementated in the current software:
 
+ ![MoonMineDiagram](https://github.com/ntvu5451/MoonMining/assets/44453995/7ef6e08a-6567-461b-993d-0a8397b2d58d)
+
+ 
  Run Instructions:
  
 	● to configure: cmake -S . -B build

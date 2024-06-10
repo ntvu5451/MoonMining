@@ -10,7 +10,7 @@ int main(int argc, char* argv[]){
     //get values from command line
     int max_truck_num = 8;
     int max_load_sites = 10;
-    int max_threads= 10;
+    int max_threads= 30;
     float total_run_in_hrs = 72.0;
     std::string filename = "output.csv";
     if ((argc >= 4))
@@ -24,7 +24,6 @@ int main(int argc, char* argv[]){
         }
     }
                                                                                  
-    max_threads = max_truck_num;
     MoonMining mining_obj(max_threads, max_truck_num, max_load_sites,total_run_in_hrs,filename);
     bool status = mining_obj.Init(filename);
     if (!status)

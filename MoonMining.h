@@ -10,7 +10,8 @@
 #include <iostream>
 #include <fstream>
 
-constexpr int MIN_SIZE = 1;
+//scale to simulate faster clock
+constexpr float TIME_SCALE_FACTOR = .015;
 
 /** A thread-safe class which supports concurrent read-threads and write-threads
 	manipulating the queue concurrently. In other words, the thread-safe queue can
@@ -92,13 +93,14 @@ private:
 
 	std::counting_semaphore<> full_trucks_semaphore_;
 	std::counting_semaphore<> empty_trucks_semaphore_;
-	std::counting_semaphore<> loading_sites_semaphore_;
+	std::counting_semaphore<> unloading_sites_semaphore_;
 
 	std::vector<std::thread> producer_threads_, consumer_truck_threads_, consumer_site_threads_;
 	std::map<std::thread::id, double> mining_statistics_;
 	std::map<int, int> unloading_site_statistics_;
 	std::vector<std::queue<int>> unloading_queuelist_;
 	std::chrono::time_point<std::chrono::steady_clock> run_time_start_;
+	//std::chrono::time_point<std::chrono::system_clock> current_sim_time_;
 
 	std::mutex mutex_;
 

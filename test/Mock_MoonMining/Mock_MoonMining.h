@@ -14,6 +14,7 @@ public:
 	MOCK_METHOD(void, ConsumeUnloadSite,(int),(override));
 	MOCK_METHOD(void, ConsumeLoadedTrucksIntoQueues,(),(override));
 	MOCK_METHOD(void, PopulateUnLoadingSiteQueue,(),(override));
+	MOCK_METHOD(bool, IsRunTimeExceeded,(), (override));
 	using MoonMining::PrintQueueListStats;
 	MOCK_METHOD(void, PrintQueueListStats,(),(override));
 

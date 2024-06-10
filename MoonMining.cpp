@@ -3,6 +3,7 @@
 #include <random>
 #include <chrono>
 #include <thread>
+#include <chrono>
 #include "MoonMining.h"
 
 MoonMining::MoonMining(int max_threads, int max_trucks, int max_loading_sites, float total_run_hours, std::string file_name) :
@@ -38,7 +39,7 @@ bool MoonMining::Init(std::string out_file)
     // Seed the random number generator
     srand(seed);
 
-    //open output file
+    //open output file for truck statistics
     output_file_.open(out_file.c_str(), std::ofstream::out);
     if(output_file_.is_open())
     {
@@ -48,6 +49,19 @@ bool MoonMining::Init(std::string out_file)
     else
     {
         std::cout << "output file: "<< out_file << " failed to open." << std::endl;
+    }
+
+    //open output file for unloading site statistics
+    std::string outfile_name = "unloading_site_" + out_file;
+    site_output_file_.open(outfile_name.c_str(), std::ofstream::out);
+    if(site_output_file_.is_open())
+    {
+        return_status = true;
+        site_output_file_ << "***************UNLOADING SITE STATISTICS***************" << std::endl;
+    }
+    else
+    {
+        std::cout << "output file: "<< outfile_name<< " failed to open." << std::endl;
     }
 
     //initialize vector of unloading site queues
@@ -141,12 +155,9 @@ bool MoonMining::JoinThreads()
 
 void MoonMining::Produce() {
     bool end_run = false;
-    float sim_time_duration_seconds = 0.0;
-    //check if duration for mining has reached max (total_run_time)
-    if(((std::chrono::duration<float>(std::chrono::steady_clock::now() - run_time_start_).count())/3600.0) > total_run_time_)
-    {
-        end_run = true;
-    }
+    double sim_time_duration_seconds = 0.0;
+    time_t system_time_now;
+    
     while (!end_run) {
         int item = 0;
         int rand_num = 1;
@@ -154,6 +165,9 @@ void MoonMining::Produce() {
         {
 
             std::lock_guard<std::mutex> lock_guard(mutex_);
+
+            //check if duration for mining has reached max total_run_time_hrs
+            end_run = IsRunTimeExceeded();
             if (truck_queue_.size() < max_trucks_ && !end_run)
             {
                 truck_queue_.push(item);
@@ -169,17 +183,21 @@ void MoonMining::Produce() {
                 std::thread::id trd_id = std::this_thread::get_id();
                
                 //calculate mining time
-                sim_time_duration_seconds = std::chrono::duration<float>(sim_time - time_now).count();
+                sim_time_duration_seconds = duration_cast<std::chrono::seconds>(sim_time - time_now).count();
 
                 //convert to hrs for stats
                 mining_statistics_[trd_id] = (sim_time_duration_seconds)/3600.0;
 
+                system_time_now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+               
+               //log to output file
+                output_file_ << "truck_id ," << trd_id << " , mining_time, " << mining_statistics_[trd_id] << 
+                " , "<< std::ctime(&system_time_now)<< std::endl;
+
                 std::cout << "truck Id: " << trd_id << "  mining time: " <<mining_statistics_[trd_id] << std::endl;
-                output_file_ << "truck_id ," << trd_id << " , mining_time, " << mining_statistics_[trd_id] << std::endl;
                 std::cout << "Truck count after Mining: " << truck_queue_.size() << std::endl << std::endl;
-
-
             }
+
         }//end semaphore acquire
 
         //simulate mining time with time scale factor
@@ -194,18 +212,15 @@ void MoonMining::Produce() {
 void MoonMining::ConsumeLoadedTrucksIntoQueues() {
     int load = 1;
     bool end_run = false;
-    //check if duration for mining has reached max (total_run_time)
-    if(((std::chrono::duration<float>(std::chrono::steady_clock::now() - run_time_start_).count())/3600.0) > total_run_time_)
-    {
-        end_run = true;
-    }
+
     while (!end_run) {
         full_trucks_semaphore_.acquire();
         {
             std::lock_guard<std::mutex> guard(mutex_);
 
             //if truck_queue_.size() > 1, then add truck item to wait
-            if (truck_queue_.size() > 0)
+            end_run = IsRunTimeExceeded();
+            if (truck_queue_.size() > 0 && !end_run)
             {
                 //Get truck into shortest queue for unloading
                 PopulateUnLoadingSiteQueue();
@@ -222,35 +237,40 @@ void MoonMining::ConsumeUnloadSite(int site_number)
 {
     int load = 1;
     bool end_run = false;
-    float sim_time_duration_seconds = 0.0;
-    //check if duration for mining has reached max total_run_time_ hrs
-    auto const end_time = std::chrono::steady_clock::now();
-    if ((std::chrono::duration<float>(end_time - run_time_start_).count() / 3600.0) > total_run_time_)
-    {
-        end_run = true;
-    }
+    double sim_time_duration_seconds = 0.0;
+    std::time_t system_time_now; 
+  
     while (!end_run) {
         unloading_sites_semaphore_.acquire();
         {
             std::lock_guard<std::mutex> guard(mutex_);
 
-            if (unloading_queuelist_.size() > site_number  && !end_run)
+            //check if duration for mining has reached max total_run_time_hrs
+            end_run = IsRunTimeExceeded();
+            if (unloading_queuelist_.size() > site_number && !end_run)
             {
                 if(unloading_queuelist_[site_number].size() > 0)
                 {
-                unloading_queuelist_[site_number].pop();
-                if (truck_queue_.size() > 0)
-                {
-                    truck_queue_.pop();
-                }
-                
-                //Keep Track of how many trucks are unloaded at each unloading site
-                unloading_site_statistics_[site_number] += 1;
+                    unloading_queuelist_[site_number].pop();
 
-                //adjust site number to start at 1 for logging only
-                std::cout << "unloading site: "
-                 << (site_number +1) << "  number of trucks unloaded: " 
-                 << unloading_site_statistics_[site_number] << std::endl;
+                    system_time_now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+
+                    //log to output file
+                    site_output_file_<< "unloading site: ,"<< (site_number +1) << " , total number of trucks unloaded: , " 
+                        << unloading_site_statistics_[site_number] << " , "<< std::ctime(&system_time_now) << std::endl;
+
+                    if (truck_queue_.size() > 0)
+                    {
+                        truck_queue_.pop();
+                    }
+                    
+                    //Keep Track of how many trucks are unloaded at each unloading site
+                    unloading_site_statistics_[site_number] += 1;
+
+                    //adjust site number to start at 1 for logging only
+                    std::cout << "unloading site: "
+                    << (site_number +1) << "  total number of trucks unloaded: " 
+                    << unloading_site_statistics_[site_number] << std::endl;
 
                 }
             }
@@ -258,7 +278,7 @@ void MoonMining::ConsumeUnloadSite(int site_number)
 
         //advance 30 min travel time back to mining site and 5 min to unload truck
         auto const sim_time = std::chrono::steady_clock::now() + std::chrono::minutes(30) + std::chrono::minutes(5);
-        sim_time_duration_seconds = std::chrono::duration<float>(sim_time - std::chrono::steady_clock::now()).count();
+        sim_time_duration_seconds = duration_cast<std::chrono::seconds>(sim_time - std::chrono::steady_clock::now()).count();
 
         //Scale the unloading time and travel time 
         int scaled_mining_time_secs = sim_time_duration_seconds * TIME_SCALE_FACTOR;
@@ -313,4 +333,17 @@ void MoonMining::PrintQueueListStats()
     output_file_.close();
 }
 
+bool MoonMining::IsRunTimeExceeded()
+{
+    bool time_expired = false;
+    auto time_now = std::chrono::steady_clock::now();
+    auto time_diff = time_now - run_time_start_;
+    auto time_secs = duration_cast<std::chrono::seconds>(time_diff).count();
+    auto time_hrs = time_secs/3600.0;
+    if(time_hrs > total_run_time_)
+    {
+       time_expired = true;
+    }
+    return time_expired;
+}
 

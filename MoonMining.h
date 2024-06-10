@@ -35,6 +35,12 @@ public:
 
 
 	/// <summary>
+	/// <check current time does not exceed run time limit for program>
+	/// <return true run time exceeds time limit</param>
+	/// </summary>
+	virtual bool IsRunTimeExceeded();
+
+	/// <summary>
 	/// <initialize class variables and containers>
 	/// <param name="file_name">name of output file</param>
 	/// </summary>
@@ -110,6 +116,7 @@ private:
 	float total_run_time_;
 
 	std::ofstream output_file_;
+	std::ofstream site_output_file_;
 
 };
 

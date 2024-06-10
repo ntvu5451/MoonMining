@@ -220,6 +220,7 @@ void MoonMining::ConsumeLoadedTrucksIntoQueues() {
 
             //if truck_queue_.size() > 1, then add truck item to wait
             end_run = IsRunTimeExceeded();
+
             if (truck_queue_.size() > 0 && !end_run)
             {
                 //Get truck into shortest queue for unloading
@@ -323,11 +324,11 @@ void MoonMining::PrintQueueListStats()
         return;
     }
 
-    for (int i = 0; i < unloading_queuelist_.size(); ++i)
+    for (auto& [key, value] : unloading_site_statistics_)
     {
         output_file_ << std::endl << std::endl;
         output_file_ << "***************UNLOADING SITE STATISTICS***************" << std::endl;
-        output_file_ << "Unloading Site Number, " << i << " , total trucks queued, " << unloading_queuelist_[i].size() << std::endl;
+        output_file_ << "Unloading Site Number, " << key<< " , total trucks unloaded, " << value << std::endl;
     }
 
     output_file_.close();

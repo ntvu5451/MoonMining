@@ -70,3 +70,10 @@ Instructions to run in console below:
   
   	such as semaphore creation which would require substantial run time in a gtest suite
  
+Output: 
+
+Statistics for truck mining duration for each truck id as well as statistics for number of trucks unloaded per unloading site
+
+are printed to the screen as well as to an output file. 
+
+![MoonProject_Output4](https://github.com/ntvu5451/MoonMining/assets/44453995/417d3a54-e53d-44f9-ac91-e35b8cc0c10a)
